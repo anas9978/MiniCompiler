@@ -1,0 +1,4 @@
+# Triggers a semantic error on purpose: price and quantity
+# are used before ever being assigned.
+total = price * quantity
+print(total)
