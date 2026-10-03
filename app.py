@@ -228,23 +228,12 @@ if page == "Compiler":
 
         col_a, col_b, col_c, col_d = st.columns(4)
         compile_clicked = col_a.button("▶ Compile & Run", type="primary", use_container_width=True)
-        if col_b.button("↻ Clear", use_container_width=True):
-            st.session_state.source_code = ""
-            st.session_state.result = None
-            st.rerun()
+        
 
-        uploaded = col_c.file_uploader("Open", type=["mpy", "txt"], label_visibility="collapsed")
-        if uploaded is not None:
-            st.session_state.source_code = uploaded.getvalue().decode("utf-8")
-            st.session_state.filename = uploaded.name
-            st.rerun()
+        
 
-        col_d.download_button(
-            "💾 Save",
-            data=st.session_state.source_code,
-            file_name=st.session_state.filename or "source.mpy",
-            use_container_width=True,
-        )
+        
+      
 
         if compile_clicked:
             st.session_state.result = run_pipeline(st.session_state.source_code, st.session_state.max_steps)
