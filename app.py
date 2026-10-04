@@ -153,62 +153,6 @@ TOKEN_COLORS = {
 DEFAULT_TOKEN_COLOR = "#202b3f;color:#8698b8"
 
 
-def render_ast_node(node, label_override=None) -> str:
-    """Render one AST node (and children) as nested markdown bullets."""
-    kind = type(node).__name__
-    lines = []
-
-    def label(n, override=None):
-        if override:
-            return override
-        t = type(n).__name__
-        if t == "Assign":
-            return f"**Assign**({n.name})"
-        if t == "BinaryOp":
-            return f"**BinaryOp**({n.op})"
-        if t == "UnaryOp":
-            return f"**UnaryOp**({n.op})"
-        if t == "Identifier":
-            return f"**Identifier**({n.name})"
-        if t == "Number":
-            return f"**Number**({n.value})"
-        return f"**{t}**"
-
-    def walk(n, depth, override=None):
-        indent = "&nbsp;&nbsp;&nbsp;&nbsp;" * depth
-        lines.append(f"{indent}- {label(n, override)}")
-        t = type(n).__name__
-        if t == "Program":
-            for c in n.body:
-                walk(c, depth + 1)
-        elif t == "Assign":
-            walk(n.expr, depth + 1)
-        elif t == "If":
-            walk(n.cond, depth + 1, "Condition")
-            lines.append(f"{'&nbsp;&nbsp;&nbsp;&nbsp;' * (depth + 1)}- **Then**")
-            for c in n.then_block:
-                walk(c, depth + 2)
-            if n.else_block:
-                lines.append(f"{'&nbsp;&nbsp;&nbsp;&nbsp;' * (depth + 1)}- **Else**")
-                for c in n.else_block:
-                    walk(c, depth + 2)
-        elif t == "While":
-            walk(n.cond, depth + 1, "Condition")
-            lines.append(f"{'&nbsp;&nbsp;&nbsp;&nbsp;' * (depth + 1)}- **Body**")
-            for c in n.body:
-                walk(c, depth + 2)
-        elif t == "Print":
-            walk(n.expr, depth + 1)
-        elif t == "BinaryOp":
-            walk(n.left, depth + 1)
-            walk(n.right, depth + 1)
-        elif t == "UnaryOp":
-            walk(n.expr, depth + 1)
-
-    walk(node, 0, label_override)
-    return "\n".join(lines)
-
-
 # =================================================================
 # PAGE: Compiler
 # =================================================================
@@ -245,9 +189,9 @@ if page == "Compiler":
         result = st.session_state.result
 
         if not result:
-            st.info("Click **Compile & Run** to see tokens, AST, semantic analysis, TAC, and output here.")
+            st.info("Click **Compile & Run** to see tokens, semantic analysis, and output here.")
         else:
-            tabs = st.tabs(["Tokens", "AST", "Semantic", "3-Address Code", "Output"])
+            tabs = st.tabs(["Tokens", "Semantic", "Output"])
 
             # --- Tokens ---
             with tabs[0]:
@@ -265,15 +209,8 @@ if page == "Compiler":
                 else:
                     st.caption("No tokens (lexical error before any tokens were produced).")
 
-            # --- AST ---
-            with tabs[1]:
-                if result["ast"]:
-                    st.markdown(render_ast_node(result["ast"]), unsafe_allow_html=True)
-                else:
-                    st.caption("No AST (parsing failed).")
-
             # --- Semantic ---
-            with tabs[2]:
+            with tabs[1]:
                 if result["semantic_errors"]:
                     banner("error", f"{len(result['semantic_errors'])} semantic error(s) found")
                 else:
@@ -293,21 +230,8 @@ if page == "Compiler":
                     for e in result["semantic_errors"]:
                         banner("error", f"Line {e['line']}: {e['message']}")
 
-            # --- TAC ---
-            with tabs[3]:
-                if result["tac"]:
-                    tac_text = "\n".join(f"{i + 1:>3}  {line}" for i, line in enumerate(result["tac"]))
-                    st.code(tac_text, language=None)
-                    st.download_button(
-                        "⬇ Download TAC (.txt)",
-                        data="\n".join(result["tac"]),
-                        file_name=f"{Path(st.session_state.filename).stem}_tac.txt",
-                    )
-                else:
-                    st.caption("No TAC generated (parsing failed).")
-
             # --- Output ---
-            with tabs[4]:
+            with tabs[2]:
                 out_text = "\n".join(result["output"])
                 if result["output_error"]:
                     out_text += ("\n" if result["output"] else "") + f"--- runtime error: {result['message']} ---"
