@@ -1,14 +1,4 @@
-# Simple program
-x = 10
-y = 20
-z = x + y * 2
-
-if z > 40:
-    print(z)
-else:
-    print(0)
-
-i = 0
-while i < 3:
-    print(i)
-    i = i + 1
+a=10
+b=11
+c=a+b
+print(c)

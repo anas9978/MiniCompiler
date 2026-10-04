@@ -227,13 +227,7 @@ if page == "Compiler":
         )
 
         col_a, col_b, col_c, col_d = st.columns(4)
-        compile_clicked = col_a.button("▶ Compile & Run", type="primary", use_container_width=True)
-        
-
-        
-
-        
-      
+        compile_clicked = col_a.button("▶ Compile & Run", type="primary", width="stretch")
 
         if compile_clicked:
             st.session_state.result = run_pipeline(st.session_state.source_code, st.session_state.max_steps)
@@ -259,11 +253,15 @@ if page == "Compiler":
             with tabs[0]:
                 if result["tokens"]:
                     rows = [
-                        {"#": i + 1, "Token Type": t.type.name, "Value": t.value, "Line": t.line, "Column": t.col}
+                        # Cast Value to str: a NUMBER token's value is an int
+                        # while every other token's value is a str, and a
+                        # mixed-type column can't be serialized to Arrow for
+                        # st.dataframe (that was the ArrowTypeError).
+                        {"#": i + 1, "Token Type": t.type.name, "Value": str(t.value), "Line": t.line, "Column": t.col}
                         for i, t in enumerate(result["tokens"])
                         if t.type.name != "NEWLINE"
                     ]
-                    st.dataframe(rows, use_container_width=True, height=320, hide_index=True)
+                    st.dataframe(rows, width="stretch", height=320, hide_index=True)
                 else:
                     st.caption("No tokens (lexical error before any tokens were produced).")
 
@@ -285,7 +283,7 @@ if page == "Compiler":
                 if result["symbol_table"]:
                     st.dataframe(
                         [{"Name": s.name, "Type": s.type, "Scope": s.scope, "Line": s.line} for s in result["symbol_table"]],
-                        use_container_width=True, hide_index=True,
+                        width="stretch", hide_index=True,
                     )
                 else:
                     st.caption("No symbols declared yet.")
@@ -329,11 +327,7 @@ if page == "Compiler":
                 "--- Output ---",
                 *result["output"],
             ]
-            st.download_button(
-                "⬇ Download Compilation Report",
-                data="\n".join(report_lines),
-                file_name=f"{Path(st.session_state.filename).stem}_report.txt",
-            )
+
 
 # =================================================================
 # PAGE: Examples
