@@ -63,7 +63,7 @@ if "max_steps" not in st.session_state:
 if "result" not in st.session_state:
     st.session_state.result = None
 
-PAGES = ["Compiler", "Examples", "Documentation", "About Project", "Settings"]
+PAGES = ["Compiler", "Examples", "About Project", "Settings"]
 
 with st.sidebar:
     st.markdown("## 🐍 MiniPy Compiler")
@@ -277,53 +277,7 @@ elif page == "Examples":
                 st.session_state.result = None
                 st.success(f"Loaded {file.name} — switch to the Compiler page to run it.")
 
-# =================================================================
-# PAGE: Documentation
-# =================================================================
-elif page == "Documentation":
-    st.subheader("📖 MiniPy Language Reference")
-    st.markdown("""
-MiniPy is a deliberately small subset of Python — small enough that every
-line of the compiler fits in your head at once.
 
-**Supported constructs**
-- Variable assignment: `x = 10`
-- Arithmetic: `+  -  *  /  %` with standard precedence (`*` `/` `%` bind tighter than `+` `-`)
-- Comparisons: `<  >  <=  >=  ==  !=`
-- `if` / `else` blocks (indentation-based, like Python)
-- `while` loops
-- `print(expr)`
-- Comments with `#`
-
-**Not supported (by design)** — functions, strings, lists, `elif`, boolean
-operators (`and`/`or`). Every number is treated as an `int`-like value.
-
-**Compiler phases**
-1. **Lexical Analysis** (`lexer.py`) — source text → tokens, with real
-   INDENT/DEDENT tracking so blocks work like Python's do.
-2. **Syntax Analysis** (`parser.py`) — tokens → AST, via recursive descent.
-   The grammar is documented at the top of the file.
-3. **Semantic Analysis** (`semantic.py`) — builds the symbol table, flags
-   variables used before assignment and statically-known division by zero.
-4. **Intermediate Code Generation** (`ir_generator.py`) — AST → three-address
-   code with temporaries (`t1, t2, ...`) and labels (`L1, L2, ...`).
-5. **Execution** (`interpreter.py`) — a *safe* tree-walking interpreter.
-   It only understands MiniPy's own AST node types — there is no `eval`/`exec`
-   of arbitrary Python anywhere, and a step counter aborts infinite loops.
-
-**Example**
-```
-x = 10
-y = 20
-z = x + y * 2
-
-if z > 40:
-    print(z)
-else:
-    print(0)
-```
-Output: `50`
-""")
 
 # =================================================================
 # PAGE: About Project
