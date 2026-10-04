@@ -63,7 +63,7 @@ if "max_steps" not in st.session_state:
 if "result" not in st.session_state:
     st.session_state.result = None
 
-PAGES = ["Compiler", "Examples", "About Project",]
+PAGES = ["Compiler", "Examples", "Documentation", "About Project", "Settings"]
 
 with st.sidebar:
     st.markdown("## 🐍 MiniPy Compiler")
@@ -189,9 +189,9 @@ if page == "Compiler":
         result = st.session_state.result
 
         if not result:
-            st.info("Click **Compile & Run** to see tokens, semantic analysis, and output here.")
+            st.info("Click **Compile & Run** to see tokens, semantic analysis, TAC, and output here.")
         else:
-            tabs = st.tabs(["Tokens", "Semantic", "Output"])
+            tabs = st.tabs(["Tokens", "Semantic", "3-Address Code", "Output"])
 
             # --- Tokens ---
             with tabs[0]:
@@ -230,8 +230,21 @@ if page == "Compiler":
                     for e in result["semantic_errors"]:
                         banner("error", f"Line {e['line']}: {e['message']}")
 
-            # --- Output ---
+            # --- TAC ---
             with tabs[2]:
+                if result["tac"]:
+                    tac_text = "\n".join(f"{i + 1:>3}  {line}" for i, line in enumerate(result["tac"]))
+                    st.code(tac_text, language=None)
+                    st.download_button(
+                        "⬇ Download TAC (.txt)",
+                        data="\n".join(result["tac"]),
+                        file_name=f"{Path(st.session_state.filename).stem}_tac.txt",
+                    )
+                else:
+                    st.caption("No TAC generated (parsing failed).")
+
+            # --- Output ---
+            with tabs[3]:
                 out_text = "\n".join(result["output"])
                 if result["output_error"]:
                     out_text += ("\n" if result["output"] else "") + f"--- runtime error: {result['message']} ---"
@@ -277,7 +290,53 @@ elif page == "Examples":
                 st.session_state.result = None
                 st.success(f"Loaded {file.name} — switch to the Compiler page to run it.")
 
+# =================================================================
+# PAGE: Documentation
+# =================================================================
+elif page == "Documentation":
+    st.subheader("📖 MiniPy Language Reference")
+    st.markdown("""
+MiniPy is a deliberately small subset of Python — small enough that every
+line of the compiler fits in your head at once.
 
+**Supported constructs**
+- Variable assignment: `x = 10`
+- Arithmetic: `+  -  *  /  %` with standard precedence (`*` `/` `%` bind tighter than `+` `-`)
+- Comparisons: `<  >  <=  >=  ==  !=`
+- `if` / `else` blocks (indentation-based, like Python)
+- `while` loops
+- `print(expr)`
+- Comments with `#`
+
+**Not supported (by design)** — functions, strings, lists, `elif`, boolean
+operators (`and`/`or`). Every number is treated as an `int`-like value.
+
+**Compiler phases**
+1. **Lexical Analysis** (`lexer.py`) — source text → tokens, with real
+   INDENT/DEDENT tracking so blocks work like Python's do.
+2. **Syntax Analysis** (`parser.py`) — tokens → AST, via recursive descent.
+   The grammar is documented at the top of the file.
+3. **Semantic Analysis** (`semantic.py`) — builds the symbol table, flags
+   variables used before assignment and statically-known division by zero.
+4. **Intermediate Code Generation** (`ir_generator.py`) — AST → three-address
+   code with temporaries (`t1, t2, ...`) and labels (`L1, L2, ...`).
+5. **Execution** (`interpreter.py`) — a *safe* tree-walking interpreter.
+   It only understands MiniPy's own AST node types — there is no `eval`/`exec`
+   of arbitrary Python anywhere, and a step counter aborts infinite loops.
+
+**Example**
+```
+x = 10
+y = 20
+z = x + y * 2
+
+if z > 40:
+    print(z)
+else:
+    print(0)
+```
+Output: `50`
+""")
 
 # =================================================================
 # PAGE: About Project
@@ -317,3 +376,21 @@ generating code and running code are different jobs even though they
 both start from the same AST.
 """)
 
+# =================================================================
+# PAGE: Settings
+# =================================================================
+elif page == "Settings":
+    st.subheader("⚙️ Settings")
+
+    st.markdown("**Execution limit**")
+    st.caption("Maximum interpreter steps before a running program is aborted as a likely infinite loop.")
+    st.session_state.max_steps = st.slider(
+        "Max steps", min_value=1_000, max_value=1_000_000,
+        value=st.session_state.max_steps, step=1_000,
+    )
+
+    st.markdown("**Theme**")
+    st.caption(
+        "This app ships with a dark theme by default (see `.streamlit/config.toml`). "
+        "To switch to light mode, open the menu in the top-right corner (⋮) → Settings → Theme."
+    )
