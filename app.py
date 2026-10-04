@@ -63,7 +63,7 @@ if "max_steps" not in st.session_state:
 if "result" not in st.session_state:
     st.session_state.result = None
 
-PAGES = ["Compiler", "Examples", "About Project", "Settings"]
+PAGES = ["Compiler", "Examples", "About Project",]
 
 with st.sidebar:
     st.markdown("## 🐍 MiniPy Compiler")
@@ -317,21 +317,3 @@ generating code and running code are different jobs even though they
 both start from the same AST.
 """)
 
-# =================================================================
-# PAGE: Settings
-# =================================================================
-elif page == "Settings":
-    st.subheader("⚙️ Settings")
-
-    st.markdown("**Execution limit**")
-    st.caption("Maximum interpreter steps before a running program is aborted as a likely infinite loop.")
-    st.session_state.max_steps = st.slider(
-        "Max steps", min_value=1_000, max_value=1_000_000,
-        value=st.session_state.max_steps, step=1_000,
-    )
-
-    st.markdown("**Theme**")
-    st.caption(
-        "This app ships with a dark theme by default (see `.streamlit/config.toml`). "
-        "To switch to light mode, open the menu in the top-right corner (⋮) → Settings → Theme."
-    )
