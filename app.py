@@ -63,7 +63,7 @@ if "max_steps" not in st.session_state:
 if "result" not in st.session_state:
     st.session_state.result = None
 
-PAGES = ["Compiler", "Examples",  "About Project"]
+PAGES = ["Compiler", "Examples"]
 
 with st.sidebar:
     st.markdown("## 🐍 MiniPy Compiler")
@@ -153,6 +153,62 @@ TOKEN_COLORS = {
 DEFAULT_TOKEN_COLOR = "#202b3f;color:#8698b8"
 
 
+def render_ast_node(node, label_override=None) -> str:
+    """Render one AST node (and children) as nested markdown bullets."""
+    kind = type(node).__name__
+    lines = []
+
+    def label(n, override=None):
+        if override:
+            return override
+        t = type(n).__name__
+        if t == "Assign":
+            return f"**Assign**({n.name})"
+        if t == "BinaryOp":
+            return f"**BinaryOp**({n.op})"
+        if t == "UnaryOp":
+            return f"**UnaryOp**({n.op})"
+        if t == "Identifier":
+            return f"**Identifier**({n.name})"
+        if t == "Number":
+            return f"**Number**({n.value})"
+        return f"**{t}**"
+
+    def walk(n, depth, override=None):
+        indent = "&nbsp;&nbsp;&nbsp;&nbsp;" * depth
+        lines.append(f"{indent}- {label(n, override)}")
+        t = type(n).__name__
+        if t == "Program":
+            for c in n.body:
+                walk(c, depth + 1)
+        elif t == "Assign":
+            walk(n.expr, depth + 1)
+        elif t == "If":
+            walk(n.cond, depth + 1, "Condition")
+            lines.append(f"{'&nbsp;&nbsp;&nbsp;&nbsp;' * (depth + 1)}- **Then**")
+            for c in n.then_block:
+                walk(c, depth + 2)
+            if n.else_block:
+                lines.append(f"{'&nbsp;&nbsp;&nbsp;&nbsp;' * (depth + 1)}- **Else**")
+                for c in n.else_block:
+                    walk(c, depth + 2)
+        elif t == "While":
+            walk(n.cond, depth + 1, "Condition")
+            lines.append(f"{'&nbsp;&nbsp;&nbsp;&nbsp;' * (depth + 1)}- **Body**")
+            for c in n.body:
+                walk(c, depth + 2)
+        elif t == "Print":
+            walk(n.expr, depth + 1)
+        elif t == "BinaryOp":
+            walk(n.left, depth + 1)
+            walk(n.right, depth + 1)
+        elif t == "UnaryOp":
+            walk(n.expr, depth + 1)
+
+    walk(node, 0, label_override)
+    return "\n".join(lines)
+
+
 # =================================================================
 # PAGE: Compiler
 # =================================================================
@@ -171,7 +227,11 @@ if page == "Compiler":
         )
 
         col_a, col_b, col_c, col_d = st.columns(4)
-        compile_clicked = col_a.button("▶ Compile & Run", type="primary", width="stretch")
+        compile_clicked = col_a.button("▶ Compile & Run", type="primary", use_container_width=True)
+        
+
+       
+        
 
         if compile_clicked:
             st.session_state.result = run_pipeline(st.session_state.source_code, st.session_state.max_steps)
@@ -189,28 +249,31 @@ if page == "Compiler":
         result = st.session_state.result
 
         if not result:
-            st.info("Click **Compile & Run** to see tokens, semantic analysis, TAC, and output here.")
+            st.info("Click **Compile & Run** to see tokens, AST, semantic analysis, TAC, and output here.")
         else:
-            tabs = st.tabs(["Tokens", "Semantic", "3-Address Code", "Output"])
+            tabs = st.tabs(["Tokens", "AST", "Semantic", "3-Address Code", "Output"])
 
             # --- Tokens ---
             with tabs[0]:
                 if result["tokens"]:
                     rows = [
-                        # Cast Value to str: a NUMBER token's value is an int
-                        # while every other token's value is a str, and a
-                        # mixed-type column can't be serialized to Arrow for
-                        # st.dataframe (that was the ArrowTypeError).
-                        {"#": i + 1, "Token Type": t.type.name, "Value": str(t.value), "Line": t.line, "Column": t.col}
+                        {"#": i + 1, "Token Type": t.type.name, "Value": t.value, "Line": t.line, "Column": t.col}
                         for i, t in enumerate(result["tokens"])
                         if t.type.name != "NEWLINE"
                     ]
-                    st.dataframe(rows, width="stretch", height=320, hide_index=True)
+                    st.dataframe(rows, use_container_width=True, height=320, hide_index=True)
                 else:
                     st.caption("No tokens (lexical error before any tokens were produced).")
 
-            # --- Semantic ---
+            # --- AST ---
             with tabs[1]:
+                if result["ast"]:
+                    st.markdown(render_ast_node(result["ast"]), unsafe_allow_html=True)
+                else:
+                    st.caption("No AST (parsing failed).")
+
+            # --- Semantic ---
+            with tabs[2]:
                 if result["semantic_errors"]:
                     banner("error", f"{len(result['semantic_errors'])} semantic error(s) found")
                 else:
@@ -220,7 +283,7 @@ if page == "Compiler":
                 if result["symbol_table"]:
                     st.dataframe(
                         [{"Name": s.name, "Type": s.type, "Scope": s.scope, "Line": s.line} for s in result["symbol_table"]],
-                        width="stretch", hide_index=True,
+                        use_container_width=True, hide_index=True,
                     )
                 else:
                     st.caption("No symbols declared yet.")
@@ -231,16 +294,16 @@ if page == "Compiler":
                         banner("error", f"Line {e['line']}: {e['message']}")
 
             # --- TAC ---
-            with tabs[2]:
+            with tabs[3]:
                 if result["tac"]:
                     tac_text = "\n".join(f"{i + 1:>3}  {line}" for i, line in enumerate(result["tac"]))
                     st.code(tac_text, language=None)
-                    
+                   
                 else:
                     st.caption("No TAC generated (parsing failed).")
 
             # --- Output ---
-            with tabs[3]:
+            with tabs[4]:
                 out_text = "\n".join(result["output"])
                 if result["output_error"]:
                     out_text += ("\n" if result["output"] else "") + f"--- runtime error: {result['message']} ---"
@@ -260,7 +323,7 @@ if page == "Compiler":
                 "--- Output ---",
                 *result["output"],
             ]
-
+           
 
 # =================================================================
 # PAGE: Examples
@@ -287,42 +350,4 @@ elif page == "Examples":
                 st.success(f"Loaded {file.name} — switch to the Compiler page to run it.")
 
 
-
-# =================================================================
-# PAGE: About Project
-# =================================================================
-elif page == "About Project":
-    st.subheader("ℹ️ About This Project")
-    st.markdown("""
-**MiniPy Compiler** — *A Visual Python-Like Language Compiler*
-
-A Computer Science Compiler Design mini-project: a complete compiler
-pipeline (lexer → parser → semantic analyzer → IR generator → interpreter)
-for a small Python-like language, with a Streamlit front-end so every
-phase is inspectable.
-
-**Tech stack:** Python 3, Streamlit
-
-**Project structure**
-```
-MiniPyCompiler/
-├── app.py            Streamlit GUI (this file's sibling)
-├── lexer.py          Phase 1: tokenizer
-├── tokens.py         Token / TokenType definitions
-├── parser.py         Phase 2: recursive-descent parser
-├── ast_nodes.py       AST node dataclasses
-├── semantic.py        Phase 3: symbol table + checks
-├── symbol_table.py    Symbol storage
-├── ir_generator.py     Phase 4: three-address code
-├── interpreter.py     Phase 5: safe execution
-├── errors.py          One exception type per phase
-├── examples/          Sample .mpy programs
-└── requirements.txt
-```
-
-Each module only imports what it structurally needs — `ir_generator.py`
-and `interpreter.py`, for instance, never import each other, because
-generating code and running code are different jobs even though they
-both start from the same AST.
-""")
 
